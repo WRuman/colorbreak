@@ -1,5 +1,5 @@
 /*
- * breakout.c
+ * colorbreak.c
  * 
  * Copyright 2016 will.ruman <will.ruman@penton.com>
  * 

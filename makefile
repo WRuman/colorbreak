@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -std=c99 -pedantic
-TARGET = breakout
+TARGET = colorbreak
 
 all:$(TARGET)
 

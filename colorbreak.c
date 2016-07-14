@@ -6,27 +6,44 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <unistd.h>
+#include <sys/timeb.h>
+#include "termctl.h"
 
-static const char* useAlternateBuffer = "\x1b[?1047h";
+
 //static const char* moveHome = "\x1b[H";
 static const char* clearLine = "\x1b[2K";
-static const char* hideCursor = "\x1b[?25l";
-//static const char* resetAllAttributes = "\x1b[0m";
 
-void initScreen(void) {
-	printf(useAlternateBuffer);
-	printf(hideCursor);
+void greet(int x) {
+	printf(clearLine);
+	moveTo(x, 35);
+	printf("Hello World!");
+}
+
+void put(char** buff, int y, int x, char item) {
+	char* location = (buff)
 }
 
 int main(int argc, char **argv)
 {
-	initScreen();
+	setupScreen();
+	struct screen s = getScreen();
+	int buffSize = (s.height * s.width) * sizeof(char);
+	char* buffer = malloc(buffSize);
 	int i = 1;
-		
+	
+	//struct timeb start, end;
+	//ftime(&start);
+	/**
 	while(1) {
-		printf(clearLine);
-		printf("\x1b[%d;35HHello World!", i % 30);
-		i++;
+		ftime(&end);
+		int diff = end.millitm - start.millitm;
+		if(diff >= 500) {
+			i++;
+			greet(i);
+			ftime(&start);
+		}
 	}
+	**/
+	teardownScreen();
 	return 0;
 }

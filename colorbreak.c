@@ -6,12 +6,14 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/timeb.h>
 #include "termctl.h"
 
 
 //static const char* moveHome = "\x1b[H";
 static const char* clearLine = "\x1b[2K";
+struct screen screenInfo;
 
 void greet(int x) {
 	printf(clearLine);
@@ -20,30 +22,23 @@ void greet(int x) {
 }
 
 void put(char** buff, int y, int x, char item) {
-	char* location = (buff)
+	int offset = y * screenInfo.width + x;
+	char* location = (char*)(*buff + (offset * sizeof(char)));
+	*location = item;
 }
 
 int main(int argc, char **argv)
 {
 	setupScreen();
-	struct screen s = getScreen();
-	int buffSize = (s.height * s.width) * sizeof(char);
+	screenInfo = getScreen();
+	int buffSize = (screenInfo.height * screenInfo.width + 1) * sizeof(char);
 	char* buffer = malloc(buffSize);
-	int i = 1;
-	
-	//struct timeb start, end;
-	//ftime(&start);
-	/**
-	while(1) {
-		ftime(&end);
-		int diff = end.millitm - start.millitm;
-		if(diff >= 500) {
-			i++;
-			greet(i);
-			ftime(&start);
-		}
-	}
-	**/
+	memset(buffer, ' ', buffSize - 1);
+	buffer[buffSize - 1] = '\0';
+	put(&buffer, 5, 5, 'W');
+	put(&buffer, 1, 0, 'R');
+	put(&buffer, 23, 79, 'F');
+    write(STDOUT_FILENO, buffer, buffSize);
 	teardownScreen();
 	return 0;
 }

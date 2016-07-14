@@ -5,7 +5,7 @@
 struct screen {
 	int width;
 	int height;
-}
+};
 
 void teardownScreen(void);
 

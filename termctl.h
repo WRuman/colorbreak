@@ -13,6 +13,8 @@ void setupScreen(void);
 
 void moveTo(int y, int x);
 
+int enterRawMode(int term);
+
 struct screen getScreen(void);
 
 int useRawMode(void);

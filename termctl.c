@@ -1,32 +1,34 @@
 // termctl.c
 #include "termctl.h"
-#include <stdio.h>
-#include <termios.h>
 
-static const char* enterAltBuff = "\x1b[?1047h";
-static const char* exitAltBuff = "\x1b[?1047l";
-static const char* rmCursor = "\x1b[?25l";
-static const char* addCursor = "\x1b[?25h";
-
-void teardownScreen(void) {
-	printf(exitAltBuff);
-	printf(addCursor);
+struct screen getScreen(void) {
+	struct screen s;
+	s.width = 80;
+	s.height = 24;
+	return s;
 }
 
-void setupScreen(void) {
-	printf(enterAltBuff);
-	printf(rmCursor);
+/**
+ * Loads termios struct with current terminal configuration
+ * Returns nonzero on error
+ */
+int getTerminalConfig(struct termios* tconfig) {
+	return tcgetattr(STDOUT_FILENO, tconfig);
 }
 
-void moveTo(int y, int x) {
-	printf("\x1b[%d;%d", y, x);
+/**
+ * Configures terminal using supplied termios struct and flushes
+ * Returns nonzero on error
+ */
+int setTerminalConfig(struct termios* tconfig) {
+	return tcsetattr(STDOUT_FILENO, TCSAFLUSH, tconfig);
 }
 
 /**
  * Code and concepts borrowed from antirez's editor, named "kilo".
  * Roughly equivalent to the function cfmakeraw() in termios.h
  */
-int enterRawMode(int term) {
+int setRawMode(int term) {
 	struct termios termConfig;
 	if(tcgetattr(term, &termConfig) != 0) {
 		return 1;
@@ -63,13 +65,4 @@ int enterRawMode(int term) {
 	return 0;
 }
 
-struct screen getScreen(void) {
-	struct screen s;
-	s.width = 80;
-	s.height = 24;
-	return s;
-}
 
-int useRawMode(void) {
-	return 0;
-}

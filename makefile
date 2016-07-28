@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -std=c99 -pedantic -g
+CFLAGS = -Wall -std=c11 -pedantic -g -lm
 TARGET = colorbreak
 ADDONS = termctl.c
 

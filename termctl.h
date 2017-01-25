@@ -2,21 +2,21 @@
 #ifndef TERMCTL_H
 #define TERMCTL_H
 
+#include <termios.h>
+#include <stdio.h>
+#include <unistd.h>
+
 struct screen {
 	int width;
 	int height;
 };
 
-void teardownScreen(void);
-
-void setupScreen(void);
-
-void moveTo(int y, int x);
-
-int enterRawMode(int term);
-
 struct screen getScreen(void);
 
-int useRawMode(void);
+int getTerminalConfig(struct termios* tconfig);
+
+int setTerminalConfig(struct termios* tconfig); 
+
+int setRawMode(int term);
 
 #endif //TERMCTL_H

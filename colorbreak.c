@@ -4,69 +4,102 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <limits.h>
-#include <unistd.h>
 #include <string.h>
 #include <termios.h>
-#include <sys/timeb.h>
+#include <time.h>
 #include "termctl.h"
+#include "screenbuffer.h"
+#include <math.h>
 
-
-//static const char* moveHome = "\x1b[H";
-static const char* clearLine = "\x1b[2K";
 struct screen screenInfo;
 struct termios oldTermConfig;
 
-struct screenbuffer {
-	int size;
-	char* buffer;
+const static int DT = 66; // ms
+
+struct ball {
+	double x;
+	double y;
+	double dx;
+	double dy;
 };
 
-void greet(int x) {
-	printf(clearLine);
-	moveTo(x, 35);
-	printf("Hello World!");
+/**
+ * Returns millisecond Unix epoch
+ */
+long getTimeMs() {
+	struct timespec ts;
+	timespec_get(&ts, TIME_UTC);
+	return (long)ts.tv_sec * 1000 + (ts.tv_nsec / 1000000);
 }
 
-void put(char** buff, int y, int x, char item) {
-	// Add three for the reset cursor code at the front of the buffer
-	int offset = y * screenInfo.width + x + 3; 
-	char* location = (char*)(*buff + (offset * sizeof(char)));
-	*location = item;
+void move_ball(struct screenbuffer* sb) {
+	static struct ball ping = {5.0, 5.0, 0.01, 0.01};
+	static int lastX = 0;
+	static int lastY = 0;
+	
+	double newX = ping.x + (DT * ping.dx);
+	double newY = ping.y + (DT * ping.dy);	
+	if(newX > screenInfo.width) {
+		newX = screenInfo.width;
+		ping.dx = -ping.dx;
+	} else if(newX < 0) {
+		newX = 0;
+		ping.dx = -ping.dx;
+	}
+	
+	if(newY > screenInfo.height) {
+		newY = screenInfo.height;
+		ping.dy = -ping.dy;
+	} else if(newY < 0) {
+		newY = 0;
+		ping.dy = -ping.dy;
+	}
+	
+	set_cell(sb, lastY, lastX, ' ');	
+	
+	ping.x = newX;
+	ping.y = newY;
+	
+	lastX = (int)round(newX);
+	lastY = (int)round(newY);
+	
+	set_cell(sb, lastY, lastX, 'X');
 }
 
-void initScreenBuffer(struct screenbuffer* sb) {
-	// Add four, one for the null terminator and three for the reset cursor
-	// code at the front of the buffer
-	int buffSize = (screenInfo.height * screenInfo.width + 4) * sizeof(char);
-	char* buffer = malloc(buffSize);
-	memset(buffer, ' ', buffSize - 1);
-	buffer[buffSize - 1] = '\0';
-	// Go home on each render
-	memcpy(buffer, "\x1b[H", 3);
-	(*sb).size = buffSize;
-	(*sb).buffer = buffer;
+void loop(struct screenbuffer* sb) {
+	long now = getTimeMs();
+	long lasttime = 0;
+	long surplus = 0;
+	while(1) {
+		now = getTimeMs();
+		surplus += (now - lasttime);
+		lasttime = now;
+		while(surplus > DT) {
+			move_ball(sb);
+			surplus -= DT;
+		}
+		write(STDOUT_FILENO, sb->buffer, sb->size);
+	}
+}
+
+void greet(struct screenbuffer* sb) {
+	set_cell(sb, 10, 10, '@');
+	write(STDOUT_FILENO, sb->buffer, sb->size);
 }
 
 int main(int argc, char **argv) {
 	screenInfo = getScreen();
 	struct screenbuffer sb; 
-	if(tcgetattr(STDOUT_FILENO, &oldTermConfig) != 0) {
+	init_buffer(&sb, &screenInfo);
+	
+	if(getTerminalConfig(&oldTermConfig) != 0) {
 		exit(-1);
 	}
-	if(enterRawMode(STDOUT_FILENO) != 0) {
+	if(setRawMode(STDOUT_FILENO) != 0) {
 		exit(-2);
 	}
-	initScreenBuffer(&sb);
-	
-	while(1) {	
-		for(int i = 0; i < screenInfo.width; i++) {
-			put(&(sb.buffer), 0, i, '=');
-			put(&(sb.buffer), 1, i, '=');
-			put(&(sb.buffer), 1, rand() % (screenInfo.width - 1), 'X');
-		}
-		write(STDOUT_FILENO, sb.buffer, sb.size);
-	}
-	
-	return tcsetattr(STDOUT_FILENO, TCSAFLUSH, &oldTermConfig);
+	greet(&sb);
+	//loop(&sb);
+	destroy_buffer(&sb);	
+	return setTerminalConfig(&oldTermConfig);
 }

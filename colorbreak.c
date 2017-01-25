@@ -48,8 +48,7 @@ void initScreenBuffer(struct screenbuffer* sb) {
 	(*sb).buffer = buffer;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 	screenInfo = getScreen();
 	struct screenbuffer sb; 
 	if(tcgetattr(STDOUT_FILENO, &oldTermConfig) != 0) {

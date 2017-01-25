@@ -8,19 +8,13 @@
 #include <termios.h>
 #include <time.h>
 #include "termctl.h"
+#include "screenbuffer.h"
 #include <math.h>
 
 struct screen screenInfo;
 struct termios oldTermConfig;
 
-const static int BUFF_PREFIX_SZ = 9;
-const static int BUFF_ADD_SZ = 10;
-
-
-struct screenbuffer {
-	int size;
-	char* buffer;
-};
+const static int DT = 66; // ms
 
 struct ball {
 	double x;
@@ -29,45 +23,22 @@ struct ball {
 	double dy;
 };
 
-void put(char** buff, int y, int x, char item) {
-	// Add ofset for the reset cursor codes at the front of the buffer
-	int offset = y * screenInfo.width + x + BUFF_PREFIX_SZ;
-	char* location = (char*)(*buff + (offset * sizeof(char)));
-	*location = item;
-}
-
-void initScreenBuffer(struct screenbuffer* sb) {
-	// Add space for command codes at the front of the buffer with 
-	// BUFF_OFFSET
-	int buffSize = (screenInfo.height * screenInfo.width + BUFF_ADD_SZ) * sizeof(char);
-	char* buffer = malloc(buffSize);
-	memset(buffer, ' ', buffSize - 1);
-	buffer[buffSize - 1] = '\0';
-	// remove cursor
-	memcpy(buffer, "\x1b[?25l", 6);
-	// Go home on each render
-	memcpy(buffer + 6, "\x1b[H", 3);
-	(*sb).size = buffSize;
-	(*sb).buffer = buffer;
-}
-
-void destroyScreenBuffer(struct screenbuffer* sb) {
-	free(sb->buffer);
-}
-
+/**
+ * Returns millisecond Unix epoch
+ */
 long getTimeMs() {
 	struct timespec ts;
 	timespec_get(&ts, TIME_UTC);
 	return (long)ts.tv_sec * 1000 + (ts.tv_nsec / 1000000);
 }
 
-void moveBall(struct screenbuffer* sb, long dt) {
+void move_ball(struct screenbuffer* sb) {
 	static struct ball ping = {5.0, 5.0, 0.01, 0.01};
 	static int lastX = 0;
 	static int lastY = 0;
 	
-	double newX = ping.x + (dt * ping.dx);
-	double newY = ping.y + (dt * ping.dy);	
+	double newX = ping.x + (DT * ping.dx);
+	double newY = ping.y + (DT * ping.dy);	
 	if(newX > screenInfo.width) {
 		newX = screenInfo.width;
 		ping.dx = -ping.dx;
@@ -84,7 +55,7 @@ void moveBall(struct screenbuffer* sb, long dt) {
 		ping.dy = -ping.dy;
 	}
 	
-	put(&(sb->buffer), lastY, lastX, ' ');	
+	set_cell(sb, lastY, lastX, ' ');	
 	
 	ping.x = newX;
 	ping.y = newY;
@@ -92,48 +63,43 @@ void moveBall(struct screenbuffer* sb, long dt) {
 	lastX = (int)round(newX);
 	lastY = (int)round(newY);
 	
-	put(&(sb->buffer), lastY, lastX, 'X');
+	set_cell(sb, lastY, lastX, 'X');
 }
 
 void loop(struct screenbuffer* sb) {
-	long oldtime = getTimeMs();
-	long newtime = 0;
-	long frametime = 0;
+	long now = getTimeMs();
+	long lasttime = 0;
 	long surplus = 0;
-	long dt = 33; // ms
 	while(1) {
-		newtime = getTimeMs();
-		frametime = newtime - oldtime;
-		oldtime = newtime;
-		surplus += frametime;
-		while(surplus > dt) {
-			moveBall(sb, dt);
-			surplus -= dt;
+		now = getTimeMs();
+		surplus += (now - lasttime);
+		lasttime = now;
+		while(surplus > DT) {
+			move_ball(sb);
+			surplus -= DT;
 		}
 		write(STDOUT_FILENO, sb->buffer, sb->size);
 	}
 }
 
-int main(int argc, char **argv)
-{
+void greet(struct screenbuffer* sb) {
+	set_cell(sb, 10, 10, '@');
+	write(STDOUT_FILENO, sb->buffer, sb->size);
+}
+
+int main(int argc, char **argv) {
 	screenInfo = getScreen();
 	struct screenbuffer sb; 
-	initScreenBuffer(&sb);
+	init_buffer(&sb, &screenInfo);
+	
 	if(getTerminalConfig(&oldTermConfig) != 0) {
 		exit(-1);
 	}
-	
 	if(setRawMode(STDOUT_FILENO) != 0) {
 		exit(-2);
 	}
-	/**	
-	for(int i = 0; i < screenInfo.width; i++) {
-		put(&(sb.buffer), 0, i, '=');
-		put(&(sb.buffer), 1, i, '=');
-	}
-	*/
-	loop(&sb);
-	
-	destroyScreenBuffer(&sb);
+	greet(&sb);
+	//loop(&sb);
+	destroy_buffer(&sb);	
 	return setTerminalConfig(&oldTermConfig);
 }
